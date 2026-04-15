@@ -44,50 +44,65 @@ export class SimplexBridge {
     }
 
     // listens for incoming messages and yields them as they arrive
-    async *listen(): AsyncGenerator<{ chatId: number; message: string }, void, unknown> {
+    // throws if no messages received within timeoutMs (default 5 minutes)
+    async *listen(timeoutMs = 300000): AsyncGenerator<{ chatId: number; message: string }, void, unknown> {
         if (!this.chatClient) {
             throw new Error("Not connected to simplex-chat");
         }
 
-        for await (const event of this.chatClient.msgQ) {
-            if (event.type === "contactConnected") {
-                // Send welcome message to new contacts
+        log.info({ timeoutMs }, "listen started");
+        let lastEventTime = Date.now();
 
-                await this.reply(event.contact.contactId, `Welcome, ${event.contact.profile.displayName}!`);
+        try {
+            for await (const event of this.chatClient.msgQ) {
+                // Check timeout BEFORE resetting - triggers on gap between events
+                if (Date.now() - lastEventTime > timeoutMs) {
+                    log.error({ idleMs: Date.now() - lastEventTime, timeoutMs }, "timeout - no events");
+                    throw new Error(`No messages received for ${timeoutMs}ms - connection may be stale`);
+                }
 
-                log.info(
-                    { contactId: event.contact.contactId, displayName: event.contact.profile.displayName },
-                    "contact connected"
-                );
-                continue;
-            }
+                lastEventTime = Date.now();
+                log.debug({ eventType: event.type }, "event received");
 
-            if (event.type === "newChatItems") {
-                for (const { chatInfo, chatItem } of event.chatItems) {
-                    // Skip non-direct chats
-                    if (chatInfo.type !== T.ChatType.Direct) {
-                        log.debug({ chatType: chatInfo.type }, "skipping non-direct chat");
-                        continue;
+                if (event.type === "contactConnected") {
+                    log.info(
+                        { contactId: event.contact.contactId, displayName: event.contact.profile.displayName },
+                        "contact connected - sending welcome"
+                    );
+                    await this.reply(event.contact.contactId, `Welcome, ${event.contact.profile.displayName}!`);
+                    log.info({ contactId: event.contact.contactId }, "welcome sent");
+                    continue;
+                }
+
+                if (event.type === "newChatItems") {
+                    log.debug({ itemCount: event.chatItems.length }, "new chat items");
+                    
+                    for (const { chatInfo, chatItem } of event.chatItems) {
+                        if (chatInfo.type !== T.ChatType.Direct) {
+                            log.debug({ chatType: chatInfo.type }, "skipping non-direct chat");
+                            continue;
+                        }
+
+                        if (chatItem.content.type !== "rcvMsgContent") {
+                            log.debug({ contentType: chatItem.content.type }, "skipping non-text content");
+                            continue;
+                        }
+
+                        const msgContent = chatItem.content.msgContent;
+                        if (msgContent.type !== "text") {
+                            log.debug({ contentType: msgContent.type }, "skipping non-text content");
+                            continue;
+                        }
+
+                        const text = msgContent.text;
+                        const preview = text.slice(0, 80);
+                        log.info({ chatId: chatInfo.contact.contactId, preview }, "message received - yielding");
+                        yield { chatId: chatInfo.contact.contactId, message: text };
                     }
-
-                    // Skip non-text content
-                    if (chatItem.content.type !== "rcvMsgContent") {
-                        log.debug({ contentType: chatItem.content.type }, "skipping non-text content");
-                        continue;
-                    }
-
-                    const msgContent = chatItem.content.msgContent;
-                    if (msgContent.type !== "text") {
-                        log.debug({ contentType: msgContent.type }, "skipping non-text content");
-                        continue;
-                    }
-
-                    const text = msgContent.text;
-                    const preview = text.slice(0, 80);
-                    log.info({ chatId: chatInfo.contact.contactId, preview }, "message received");
-                    yield { chatId: chatInfo.contact.contactId, message: text };
                 }
             }
+        } finally {
+            log.info("listen ended");
         }
     }
 
@@ -102,6 +117,35 @@ export class SimplexBridge {
             log.error(
                 { chatId, err: err instanceof Error ? err.message : String(err) },
                 "reply failed"
+            );
+            throw err;
+        }
+    }
+
+    /**
+     * Send a live message (shows in real-time as user types).
+     * Uses the raw API to access liveMessage parameter.
+     */
+    async sendLiveMessage(chatId: number, message: string): Promise<void> {
+        if (!this.chatClient || !this.userId) {
+            throw new Error("Not connected to simplex-chat");
+        }
+
+        // Build command: /_send direct=<chatId> live=on json <messages>
+        const chatRef = `direct=${chatId}`;
+        const composedMessages = JSON.stringify([{ msgContent: { type: "text", text: message }, mentions: {} }]);
+        const cmd = `/_send ${chatRef} live=on json ${composedMessages}`;
+
+        log.debug({ chatId, chars: message.length, cmdPreview: cmd.slice(0, 100) }, "sending live message");
+
+        try {
+            const response = this.chatClient.sendChatCmd(cmd);
+            await response;
+            log.info({ chatId, chars: message.length }, "live message sent");
+        } catch (err) {
+            log.error(
+                { chatId, err: err instanceof Error ? err.message : String(err) },
+                "live message failed"
             );
             throw err;
         }
