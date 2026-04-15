@@ -1,11 +1,27 @@
 {
   "name": "chronocrystal-pi",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "check": "biome check --write --error-on-warnings . && tsc --noEmit",
+    "test": "bun test",
+    "e2e": "bun run test/e2e.ts",
+    "prepare": "bun .husky/install.mjs"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "dependencies": {
+    "@mariozechner/pi-ai": "latest",
+    "@mariozechner/pi-coding-agent": "latest",
+    "@mariozechner/pi-agent-core": "latest",
+    "@mariozechner/pi-mom": "latest",
+    "pino": "^10.3.1",
+    "simplex-chat": "latest",
+    "@simplex-chat/types": "latest",
+    "tiddlywiki": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "biome": "latest",
+    "husky": "^9.1.7"
   }
 }
