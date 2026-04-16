@@ -9,3 +9,7 @@ After every big changes run the smoke tests. `smoketest.md`
 ## Committing
 
 DO NOT COMMIT unless the user explicitly says to commit.
+
+## Notes
+
+Do not parallize, do not call subagents to do tasks, do all the tassk yourself.
