@@ -47,18 +47,21 @@ export async function startBot(options: BotOptions): Promise<void> {
 
     log.info({ provider, modelId }, "model resolved");
 
-    // Create agent session
+    // Create agent session and rely on DefaultResourceLoader auto-discovery
+    // (DefaultResourceLoader will look for <cwd>/.pi/SYSTEM.md or user-level ~/.pi/agent/SYSTEM.md)
     log.info("creating agent session");
+
     const { session: agentSession, extensionsResult } = await createAgentSession({
         model,
         thinkingLevel: "off",
         sessionManager: SessionManager.inMemory(),
-        // No session persistence for bot mode - each conversation is fresh
     });
+
     log.info(
         {
             extensionsLoaded: extensionsResult.extensions.length,
             extensionsFailed: extensionsResult.errors.length,
+            systemPrompt: agentSession.agent.state.systemPrompt,
         },
         "agent session ready"
     );

@@ -21,7 +21,7 @@ COPY .husky/install.mjs ./.husky/install.mjs
 RUN bun install --frozen-lockfile --production
 
 COPY src ./src
-COPY data ./data
+COPY data ./data-seed
 RUN bun run build
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
