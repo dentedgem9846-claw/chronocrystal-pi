@@ -1,8 +1,9 @@
 import QRCode from "qrcode";
 import pino from "pino";
 
+import { getServerPort } from "./config.js";
+
 const log = pino({ name: "server" });
-const PORT = 8080;
 
 function escapeHtml(value: string): string {
 	return value
@@ -14,6 +15,7 @@ function escapeHtml(value: string): string {
 }
 
 export async function startServer(address: string): Promise<void> {
+	const port = getServerPort();
 	const qrSvg = await QRCode.toString(address, { type: "svg" });
 	const escapedAddress = escapeHtml(address);
 	const html = `<!DOCTYPE html>
@@ -58,8 +60,8 @@ export async function startServer(address: string): Promise<void> {
 </body>
 </html>`;
 
-	Bun.serve({
-		port: PORT,
+	const server = Bun.serve({
+		port,
 		fetch(request) {
 			const url = new URL(request.url);
 
@@ -84,5 +86,5 @@ export async function startServer(address: string): Promise<void> {
 		},
 	});
 
-	log.info({ port: PORT }, "http server started");
+	log.info({ port: server.port }, "http server started");
 }
