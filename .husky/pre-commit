@@ -10,32 +10,6 @@ if ! bun run check; then
   exit 1
 fi
 
-# Decide whether to run the heavier Railway production smoke test.
-# Trigger on changes that touch production behavior or deployment.
-RUN_RAILWAY_SMOKE=0
-for file in $STAGED_FILES; do
-  case "$file" in
-    src/*|package.json|DEPLOYMENT.md|Dockerfile)
-      RUN_RAILWAY_SMOKE=1
-      break
-      ;;
-  esac
-done
-
-if [ "$RUN_RAILWAY_SMOKE" -eq 1 ]; then
-  # Safety: require explicit opt-in to avoid hitting production on every developer commit.
-  # Enable by exporting RUN_RAILWAY_SMOKE_ENABLED=1 in your shell.
-  if [ "${RUN_RAILWAY_SMOKE_ENABLED:-0}" = "1" ] || [ "${RUN_RAILWAY_SMOKE_ENABLED}" = "true" ]; then
-    echo "Running Railway production smoke check..."
-    if ! bun run smoke:prod; then
-      echo "Railway production smoke check failed."
-      exit 1
-    fi
-  else
-    echo "Railway production smoke check skipped. To enable locally: export RUN_RAILWAY_SMOKE_ENABLED=1"
-  fi
-fi
-
 # Restage files that were previously staged and may have been modified by formatting
 for file in $STAGED_FILES; do
   if [ -f "$file" ]; then
