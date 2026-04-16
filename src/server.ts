@@ -14,6 +14,16 @@ function escapeHtml(value: string): string {
 		.replaceAll("'", "&#39;");
 }
 
+function buildAutomationStatus(address: string, requestUrl: URL, env = process.env) {
+	return {
+		ok: true,
+		simplexAddress: address,
+		environment: env.RAILWAY_ENVIRONMENT_NAME ?? "local",
+		service: env.RAILWAY_SERVICE_NAME ?? "chronocrystal-pi",
+		publicDomain: env.RAILWAY_PUBLIC_DOMAIN ?? requestUrl.hostname,
+	};
+}
+
 export async function startServer(address: string): Promise<void> {
 	const port = getServerPort();
 	const qrSvg = await QRCode.toString(address, { type: "svg" });
@@ -71,6 +81,14 @@ export async function startServer(address: string): Promise<void> {
 					headers: { "Content-Type": "text/plain; charset=utf-8" },
 				});
 			}
+
+			if (request.method === "GET" && url.pathname === "/automation/status") {
+				return Response.json(buildAutomationStatus(address, url), {
+					status: 200,
+					headers: { "Cache-Control": "no-store" },
+				});
+			}
+
 
 			if (request.method === "GET" && url.pathname === "/") {
 				return new Response(html, {
