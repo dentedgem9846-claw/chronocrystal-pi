@@ -22,7 +22,9 @@ RUN bun install --frozen-lockfile --production
 
 COPY src ./src
 COPY data ./data
+RUN bun run build
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+EXPOSE 8080
 ENTRYPOINT ["/entrypoint.sh"]

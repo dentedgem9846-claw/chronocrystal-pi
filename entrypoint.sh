@@ -26,4 +26,4 @@ fi
 export SIMPLEX_HOST=127.0.0.1
 export SIMPLEX_PORT
 
-exec bun run src/index.ts
+exec bun dist/index.js

@@ -2,7 +2,7 @@
  * Default values for bot configuration.
  */
 export const DEFAULT_BOT_DISPLAY_NAME = "ChronoCrystal";
-export const DEFAULT_BOT_MODEL = "openrouter/minimax/minimax-m2.5:free";
+export const DEFAULT_BOT_MODEL = "github-copilot/minimax-m2.5";
 export const DEFAULT_SIMPLEX_HOST = "127.0.0.1";
 export const DEFAULT_SIMPLEX_PORT = 5225;
 export const EMPTY_RESPONSE_REPLY = "Sorry, I couldn't generate a reply.";

@@ -4,7 +4,7 @@
  * Connects to SimpleX chat network, receives messages, processes them
  * with the Pi coding agent, and replies back.
  */
-import { createAgentSession, type AgentSession } from "@mariozechner/pi-coding-agent";
+import { createAgentSession, type AgentSession, SessionManager } from "@mariozechner/pi-coding-agent";
 import { getModel, type KnownProvider } from "@mariozechner/pi-ai";
 import pino from "pino";
 
@@ -14,6 +14,7 @@ import {
     GENERATION_ERROR_REPLY,
     parseBotModel,
 } from "./config.js";
+import { startServer } from "./server.js";
 
 const log = pino({ name: "bot" });
 
@@ -51,6 +52,7 @@ export async function startBot(options: BotOptions): Promise<void> {
     const { session: agentSession, extensionsResult } = await createAgentSession({
         model,
         thinkingLevel: "off",
+        sessionManager: SessionManager.inMemory(),
         // No session persistence for bot mode - each conversation is fresh
     });
     log.info(
@@ -82,6 +84,8 @@ export async function startBot(options: BotOptions): Promise<void> {
 
     log.info({ address }, "bot ready - waiting for messages");
 
+	await startServer(address);
+
     // Process incoming messages
     try {
         for await (const { chatId, message } of bridge.listen()) {
@@ -110,88 +114,20 @@ export async function startBot(options: BotOptions): Promise<void> {
 }
 
 /**
- * Extract text content from any AgentMessage type.
- */
-function extractTextFromMessage(msg: unknown): string {
-    const m = msg as Record<string, unknown>;
-    const role = m.role as string;
-    const content = m.content;
-
-    // Standard messages with content array
-    if (Array.isArray(content)) {
-        const texts: string[] = [];
-        for (const c of content) {
-            if (c && typeof c === "object" && (c as Record<string, unknown>).type === "text") {
-                const text = (c as Record<string, unknown>).text;
-                if (typeof text === "string") {
-                    texts.push(text);
-                }
-            }
-        }
-        return texts.join("\n");
-    }
-
-    // User message with string content
-    if (role === "user" && typeof content === "string") {
-        return content;
-    }
-
-    // Bash execution message
-    if (role === "bashExecution") {
-        const command = m.command as string ?? "";
-        const output = m.output as string ?? "";
-        const exitCode = m.exitCode;
-        return `\n$ ${command}\n${output}\nexit: ${exitCode}`;
-    }
-
-    // Branch/compaction summary
-    if (role === "branchSummary" || role === "compactionSummary") {
-        return (m.summary as string) ?? "";
-    }
-
-    // Custom message with string content
-    if (role === "custom" && typeof content === "string") {
-        return content;
-    }
-
-    return "";
-}
-
-/**
- * Process a user message through the agent and return the response.
+ * Process a user message through the agent and return the assistant response.
  */
 async function processMessage(session: AgentSession, userMessage: string): Promise<string> {
     const preview = userMessage.slice(0, 80);
     log.info({ message: preview }, "sending user message to agent");
 
-    // Send the user message to the agent
-    await session.sendUserMessage(userMessage);
+    await session.prompt(userMessage);
 
-    // Wait for the agent to finish processing
-    log.debug("waiting for agent to respond");
-    while (session.isStreaming) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    log.debug({ totalMessages: session.messages.length }, "agent finished");
-
-    // Collect ALL text from all messages (assistant, tool results, bash executions, summaries)
-    const allTexts: string[] = [];
-
-    for (const msg of session.messages) {
-        const text = extractTextFromMessage(msg);
-        if (text.trim()) {
-            allTexts.push(text);
-        }
-    }
-
-    log.info({ textCount: allTexts.length }, "collected all message texts");
-
-    if (allTexts.length === 0) {
-        log.warn("no text found in messages");
+    const reply = session.getLastAssistantText()?.trim();
+    if (!reply) {
+        log.warn("no assistant text found in last response");
         return EMPTY_RESPONSE_REPLY;
     }
 
-    const fullReply = allTexts.join("\n\n");
-    log.info({ chars: fullReply.length }, "reply ready");
-    return fullReply;
+    log.info({ chars: reply.length }, "reply ready");
+    return reply;
 }

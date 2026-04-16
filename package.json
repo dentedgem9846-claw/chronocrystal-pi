@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/index.ts",
+    "start:prod": "bun dist/index.js",
+    "build": "bun build src/index.ts --target bun --minify --outfile dist/index.js --packages external",
     "check": "bunx biome check --write --error-on-warnings . && tsc --noEmit",
     "test": "bun test",
     "e2e": "bun run test/e2e.ts",
@@ -17,10 +19,12 @@
     "pino": "latest",
     "simplex-chat": "latest",
     "@simplex-chat/types": "latest",
-    "tiddlywiki": "latest"
+    "tiddlywiki": "latest",
+    "qrcode": "latest"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/qrcode": "latest",
     "biome": "latest",
     "husky": "latest"
   }
