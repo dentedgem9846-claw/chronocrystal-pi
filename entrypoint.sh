@@ -10,7 +10,7 @@ mkdir -p "$WORKSPACE_DIR"
 mkdir -p "$(dirname "$DATA_PREFIX")"
 
 if [ -d /app/data-seed ]; then
-    cp -an /app/data-seed/. "$WORKSPACE_DIR"/
+    cp -a /app/data-seed/. "$WORKSPACE_DIR"/
 fi
 
 cd "$WORKSPACE_DIR"

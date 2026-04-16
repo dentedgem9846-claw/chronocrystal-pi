@@ -58,7 +58,7 @@ export SIMPLEX_CHAT_BIN="$HOME/.local/bin/simplex-chat"
 By default the smoke test uses:
 
 ```text
-github-copilot/minimax-m2.5
+github-copilot/gpt-4.1 
 ```
 
 That default works with the standard `pi-ai` GitHub Copilot environment variables:
@@ -72,7 +72,7 @@ You can override the judge model with `SMOKE_JUDGE_MODEL` if you want to use ano
 Examples:
 
 ```bash
-export SMOKE_JUDGE_MODEL=github-copilot/minimax-m2.5
+export SMOKE_JUDGE_MODEL=github-copilot/gpt-4.1 
 ```
 
 ## Environment variables
