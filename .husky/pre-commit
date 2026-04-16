@@ -5,28 +5,34 @@ STAGED_FILES=$(git diff --cached --name-only)
 
 # Run the check script (formatting, linting, and type checking)
 echo "Running formatting, linting, and type checking..."
-npm run check
-if [ $? -ne 0 ]; then
-  echo "❌ Checks failed. Please fix the errors before committing."
+if ! bun run check; then
+  echo "Checks failed. Please fix the errors before committing."
   exit 1
 fi
 
-RUN_BROWSER_SMOKE=0
+# Decide whether to run the heavier Railway production smoke test.
+# Trigger on changes that touch production behavior or deployment.
+RUN_RAILWAY_SMOKE=0
 for file in $STAGED_FILES; do
   case "$file" in
-    packages/ai/*|packages/web-ui/*|package.json|package-lock.json)
-      RUN_BROWSER_SMOKE=1
+    src/*|package.json|DEPLOYMENT.md|Dockerfile)
+      RUN_RAILWAY_SMOKE=1
       break
       ;;
   esac
 done
 
-if [ $RUN_BROWSER_SMOKE -eq 1 ]; then
-  echo "Running browser smoke check..."
-  npm run check:browser-smoke
-  if [ $? -ne 0 ]; then
-    echo "❌ Browser smoke check failed."
-    exit 1
+if [ "$RUN_RAILWAY_SMOKE" -eq 1 ]; then
+  # Safety: require explicit opt-in to avoid hitting production on every developer commit.
+  # Enable by exporting RUN_RAILWAY_SMOKE_ENABLED=1 in your shell.
+  if [ "${RUN_RAILWAY_SMOKE_ENABLED:-0}" = "1" ] || [ "${RUN_RAILWAY_SMOKE_ENABLED}" = "true" ]; then
+    echo "Running Railway production smoke check..."
+    if ! bun run smoke:prod; then
+      echo "Railway production smoke check failed."
+      exit 1
+    fi
+  else
+    echo "Railway production smoke check skipped. To enable locally: export RUN_RAILWAY_SMOKE_ENABLED=1"
   fi
 fi
 
@@ -37,4 +43,4 @@ for file in $STAGED_FILES; do
   fi
 done
 
-echo "✅ All pre-commit checks passed!"
+echo "All pre-commit checks passed."
