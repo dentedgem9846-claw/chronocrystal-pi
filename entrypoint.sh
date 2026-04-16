@@ -1,9 +1,10 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 BOT_DISPLAY_NAME="${BOT_DISPLAY_NAME:-ChronoCrystal}"
 DATA_PREFIX="${DATA_PREFIX:-/app/state/simplex}"
 SIMPLEX_PORT="${SIMPLEX_PORT:-5225}"
+BUN_HTTP_PORT="${PORT:-8080}"
 
 mkdir -p "$(dirname "$DATA_PREFIX")"
 
@@ -11,19 +12,20 @@ simplex-chat -d "$DATA_PREFIX" -p "$SIMPLEX_PORT" --create-bot-display-name "$BO
 
 echo "Waiting for simplex-chat to start..."
 for i in $(seq 1 30); do
-    if { echo > /dev/tcp/127.0.0.1/$SIMPLEX_PORT; } 2>/dev/null; then
+    if { echo > "/dev/tcp/127.0.0.1/$SIMPLEX_PORT"; } 2>/dev/null; then
         echo "simplex-chat is ready"
         break
     fi
     sleep 1
 done
 
-if ! { echo > /dev/tcp/127.0.0.1/$SIMPLEX_PORT; } 2>/dev/null; then
+if ! { echo > "/dev/tcp/127.0.0.1/$SIMPLEX_PORT"; } 2>/dev/null; then
     echo "ERROR: simplex-chat failed to start"
     exit 1
 fi
 
 export SIMPLEX_HOST=127.0.0.1
 export SIMPLEX_PORT
+export BUN_HTTP_PORT
 
-exec bun run src/index.ts
+exec /app/chronocrystal

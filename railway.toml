@@ -1,0 +1,10 @@
+[railway]
+  [railway.variables]
+    PORT = 8080
+
+[deploy]
+  startCommand = "/entrypoint.sh"
+  restartPolicyType = "ON_FAILURE"
+  restartPolicyMaxRetries = 10
+  healthcheckPath = "/health"
+  healthcheckTimeout = 120
