@@ -39,13 +39,13 @@ jobs:
         run: docker build --tag chronocrystal-pi:ci .
 
   deploy-preview:
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main' && vars.RAILWAY_PREVIEW_ENVIRONMENT != ''
     needs: verify
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_API_KEY }}
-      RAILWAY_SERVICE: ${{ vars.RAILWAY_PREVIEW_SERVICE || vars.RAILWAY_SERVICE }}
+      RAILWAY_SERVICE: ${{ vars.RAILWAY_PREVIEW_SERVICE }}
       RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_PREVIEW_ENVIRONMENT }}
       RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
     steps:
