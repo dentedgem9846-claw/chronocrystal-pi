@@ -42,13 +42,12 @@ WORKDIR /app
 
 COPY --from=build /app/dist/chronocrystal /app/chronocrystal
 COPY --from=simplex-download /tmp/simplex-chat /usr/local/bin/simplex-chat
+COPY package.json /app/package.json
 COPY --chown=chronocrystal:chronocrystal data ./data
 COPY entrypoint.sh /entrypoint.sh
 
 RUN chmod 755 /entrypoint.sh /app/chronocrystal /usr/local/bin/simplex-chat \
     && /usr/local/bin/simplex-chat -h >/dev/null
-
-USER chronocrystal
 
 EXPOSE 8080
 

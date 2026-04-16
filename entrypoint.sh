@@ -5,8 +5,19 @@ BOT_DISPLAY_NAME="${BOT_DISPLAY_NAME:-ChronoCrystal}"
 DATA_PREFIX="${DATA_PREFIX:-/app/state/simplex}"
 SIMPLEX_PORT="${SIMPLEX_PORT:-5225}"
 BUN_HTTP_PORT="${PORT:-8080}"
+DATA_DIR="$(dirname "$DATA_PREFIX")"
 
-mkdir -p "$(dirname "$DATA_PREFIX")"
+mkdir -p "$DATA_DIR"
+chown -R chronocrystal:chronocrystal "$DATA_DIR" /home/chronocrystal
+
+export BOT_DISPLAY_NAME
+export DATA_PREFIX
+export SIMPLEX_PORT
+export BUN_HTTP_PORT
+export HOME=/home/chronocrystal
+
+exec su -m -s /bin/bash chronocrystal -c '
+set -euo pipefail
 
 simplex-chat -d "$DATA_PREFIX" -p "$SIMPLEX_PORT" --create-bot-display-name "$BOT_DISPLAY_NAME" &
 
@@ -29,3 +40,4 @@ export SIMPLEX_PORT
 export BUN_HTTP_PORT
 
 exec /app/chronocrystal
+'
