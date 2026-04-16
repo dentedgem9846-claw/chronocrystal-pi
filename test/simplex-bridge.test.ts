@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { T } from "@simplex-chat/types";
 
-import { extractReceivedText } from "./simplex-bridge.js";
+import { extractReceivedText } from "../src/simplex-bridge.js";
 
 describe("extractReceivedText", () => {
 	test("returns text for received direct text messages", () => {

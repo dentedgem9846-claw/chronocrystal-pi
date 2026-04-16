@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 
-import { extractAssistantReply } from "./bot.js";
+import { extractAssistantReply } from "../src/bot.js";
 
 describe("extractAssistantReply", () => {
 	test("returns only assistant text from the current turn", () => {

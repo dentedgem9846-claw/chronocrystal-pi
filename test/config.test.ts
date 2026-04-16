@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { DEFAULT_SIMPLEX_PORT, getSimplexPort, parseSimplexPort } from "./config.js";
+import { DEFAULT_SIMPLEX_PORT, getSimplexPort, parseSimplexPort } from "../src/config.js";
 
 describe("parseSimplexPort", () => {
 	test("parses a valid numeric port", () => {
