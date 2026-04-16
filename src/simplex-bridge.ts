@@ -44,24 +44,14 @@ export class SimplexBridge {
     }
 
     // listens for incoming messages and yields them as they arrive
-    // throws if no messages received within timeoutMs (default 5 minutes)
-    async *listen(timeoutMs = 300000): AsyncGenerator<{ chatId: number; message: string }, void, unknown> {
+    async *listen(): AsyncGenerator<{ chatId: number; message: string }, void, unknown> {
         if (!this.chatClient) {
             throw new Error("Not connected to simplex-chat");
         }
 
-        log.info({ timeoutMs }, "listen started");
-        let lastEventTime = Date.now();
-
         try {
             for await (const event of this.chatClient.msgQ) {
-                // Check timeout BEFORE resetting - triggers on gap between events
-                if (Date.now() - lastEventTime > timeoutMs) {
-                    log.error({ idleMs: Date.now() - lastEventTime, timeoutMs }, "timeout - no events");
-                    throw new Error(`No messages received for ${timeoutMs}ms - connection may be stale`);
-                }
-
-                lastEventTime = Date.now();
+                
                 log.debug({ eventType: event.type }, "event received");
 
                 if (event.type === "contactConnected") {
