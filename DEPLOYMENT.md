@@ -100,5 +100,7 @@ The root page should also load and display the current SimpleX address QR page.
 
 - The app must listen on Railway's injected `PORT` environment variable.
 - Local fallback remains `8080`.
-- SimpleX state is stored on the attached Railway volume mounted at `/app/state`.
+- Railway still mounts the persistent volume at `/app/state`.
+- The entrypoint refreshes `/app/state/data` from the image's `/app/data-seed` on startup, then runs the Bun app with cwd `/app/state/data` so Pi auto-discovers `.pi/SYSTEM.md` there.
+- SimpleX state is stored separately at `/app/state/simplex`.
 - The container entrypoint starts `simplex-chat`, waits for it to become ready, then starts the Bun app.

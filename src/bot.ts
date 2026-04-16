@@ -4,10 +4,10 @@
  * Connects to SimpleX chat network, receives messages, processes them
  * with the Pi coding agent, and replies back.
  */
-import { createAgentSession, type AgentSession, SessionManager } from "@mariozechner/pi-coding-agent";
-import { getModel, type KnownProvider } from "@mariozechner/pi-ai";
+import { getModel } from "@mariozechner/pi-ai";
 import pino from "pino";
 
+import { createChatSession, type ChatSessionState } from "./simplex-chat-session.js";
 import { SimplexBridge, type BotConfig } from "./simplex-bridge.js";
 import {
     EMPTY_RESPONSE_REPLY,
@@ -18,12 +18,14 @@ import { startServer } from "./server.js";
 
 const log = pino({ name: "bot" });
 
+
 export interface BotOptions {
     displayName: string;
     model: string;
     simplexHost: string;
     simplexPort: number;
 }
+
 
 /**
  * Main bot function - connects to SimpleX and processes messages with the agent.
@@ -39,31 +41,12 @@ export async function startBot(options: BotOptions): Promise<void> {
         "starting bot"
     );
 
-    // Parse model spec (e.g., "openrouter/minimax/minimax-m2.5:free")
-    // The pi-ai types don't include all dynamic models from openrouter, so we need to cast
     const { provider, modelId } = parseBotModel(modelSpec);
     // @ts-expect-error - dynamic model IDs from providers like openrouter aren't in static types
     const model = getModel(provider, modelId);
 
     log.info({ provider, modelId }, "model resolved");
 
-    // Create agent session
-    log.info("creating agent session");
-    const { session: agentSession, extensionsResult } = await createAgentSession({
-        model,
-        thinkingLevel: "off",
-        sessionManager: SessionManager.inMemory(),
-        // No session persistence for bot mode - each conversation is fresh
-    });
-    log.info(
-        {
-            extensionsLoaded: extensionsResult.extensions.length,
-            extensionsFailed: extensionsResult.errors.length,
-        },
-        "agent session ready"
-    );
-
-    // Connect to SimpleX
     const bridge = new SimplexBridge();
     const botConfig: BotConfig = {
         host: simplexHost,
@@ -82,23 +65,34 @@ export async function startBot(options: BotOptions): Promise<void> {
         throw err;
     }
 
+    const chatSessions = new Map<number, ChatSessionState>();
+
     log.info({ address }, "bot ready - waiting for messages");
 
-	await startServer(address);
+    await startServer(address);
 
-    // Process incoming messages
     try {
         for await (const { chatId, message } of bridge.listen()) {
             log.info({ chatId, message: message.slice(0, 100) }, "processing message");
 
+            let chatSession = chatSessions.get(chatId);
+            if (!chatSession) {
+                log.info({ chatId }, "creating chat session");
+                chatSession = await createChatSession({ chatId, model, bridge });
+                chatSessions.set(chatId, chatSession);
+            }
+
             try {
-                const reply = await processMessage(agentSession, message);
-                await bridge.reply(chatId, reply);
+                const reply = await processMessage(chatSession, message);
+                if (reply) {
+                    await bridge.reply(chatId, reply);
+                }
             } catch (err) {
                 log.error(
-                    { chatId, err: err instanceof Error ? err.message: String(err) },
+                    { chatId, err: err instanceof Error ? err.message : String(err) },
                     "failed to process message"
                 );
+
                 await bridge.reply(chatId, GENERATION_ERROR_REPLY);
             }
         }
@@ -114,15 +108,22 @@ export async function startBot(options: BotOptions): Promise<void> {
 }
 
 /**
- * Process a user message through the agent and return the assistant response.
+ * Process a user message through the agent and return a fallback assistant response when
+ * the model did not already send one or more messages through the send_message tool.
  */
-async function processMessage(session: AgentSession, userMessage: string): Promise<string> {
+async function processMessage(chatSession: ChatSessionState, userMessage: string): Promise<string | null> {
     const preview = userMessage.slice(0, 80);
     log.info({ message: preview }, "sending user message to agent");
 
-    await session.prompt(userMessage);
+    chatSession.sentMessages.length = 0;
+    await chatSession.session.prompt(userMessage);
 
-    const reply = session.getLastAssistantText()?.trim();
+    if (chatSession.sentMessages.length > 0) {
+        log.info({ sentCount: chatSession.sentMessages.length }, "reply already sent via send_message tool");
+        return null;
+    }
+
+    const reply = chatSession.session.getLastAssistantText()?.trim();
     if (!reply) {
         log.warn("no assistant text found in last response");
         return EMPTY_RESPONSE_REPLY;

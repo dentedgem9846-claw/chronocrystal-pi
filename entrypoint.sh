@@ -2,10 +2,18 @@
 set -e
 
 BOT_DISPLAY_NAME="${BOT_DISPLAY_NAME:-ChronoCrystal}"
+WORKSPACE_DIR="${WORKSPACE_DIR:-/app/state/data}"
 DATA_PREFIX="${DATA_PREFIX:-/app/state/simplex}"
 SIMPLEX_PORT="${SIMPLEX_PORT:-5225}"
 
+mkdir -p "$WORKSPACE_DIR"
 mkdir -p "$(dirname "$DATA_PREFIX")"
+
+if [ -d /app/data-seed ]; then
+    cp -a /app/data-seed/. "$WORKSPACE_DIR"/
+fi
+
+cd "$WORKSPACE_DIR"
 
 simplex-chat -d "$DATA_PREFIX" -p "$SIMPLEX_PORT" --create-bot-display-name "$BOT_DISPLAY_NAME" &
 
@@ -26,4 +34,4 @@ fi
 export SIMPLEX_HOST=127.0.0.1
 export SIMPLEX_PORT
 
-exec bun dist/index.js
+exec bun /app/dist/index.js

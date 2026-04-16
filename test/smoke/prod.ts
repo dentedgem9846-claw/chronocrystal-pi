@@ -13,7 +13,7 @@ import { parseBotModel } from "../../src/config.js";
 const log = pino({ name: "smoke-prod" });
 
 const DEFAULT_PRODUCTION_BASE_URL = "https://chronocrystal-pi-production-db31.up.railway.app";
-const DEFAULT_JUDGE_MODEL = "github-copilot/minimax-m2.5";
+const DEFAULT_JUDGE_MODEL = "github-copilot/gpt-4.1";
 const SMOKE_PROMPT = "What is 5!? Return only the integer.";
 const JUDGE_RUBRIC = "PASS only if the reply clearly states that 5! = 120 and does not contradict itself.";
 const SIMPLEX_START_TIMEOUT_MS = 30_000;
