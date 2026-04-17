@@ -9,7 +9,7 @@ const log = pino({ name: "spawn-agent-tool" });
 
 export interface CreatePiAgentToolsOptions {
 	chatId: number;
-	enqueueReply(text: string): Promise<void>;
+	logReply(text: string): void;
 }
 
 type PiTaskStatus = "running" | "completed" | "failed";
@@ -167,15 +167,12 @@ function latestActivity(task: PiTaskRecord | null): string | null {
 	return recent[0] ?? null;
 }
 
-export function createPiAgentTools({ chatId, enqueueReply }: CreatePiAgentToolsOptions) {
+	export function createPiAgentTools({ chatId, logReply }: CreatePiAgentToolsOptions) {
 	let latestTask: PiTaskRecord | null = null;
 	const taskHistory: PiTaskRecord[] = [];
 
-	const enqueueAnnouncement = (text: string) => {
-		void enqueueReply(text).catch((error) => {
-			const message = error instanceof Error ? error.message : String(error);
-			log.error({ chatId, err: message, announcement: text }, "failed to send Pi announcement");
-		});
+	const logAnnouncement = (text: string) => {
+		logReply(text);
 	};
 
 	const recordEvent = (task: PiTaskRecord, event: PiWorkerEvent) => {
@@ -184,19 +181,19 @@ export function createPiAgentTools({ chatId, enqueueReply }: CreatePiAgentToolsO
 
 		switch (event.type) {
 			case "outbound_message":
-				enqueueAnnouncement(`[Pi] ${event.text}`);
+				logAnnouncement(`[Pi] ${event.text}`);
 				return;
 			case "done":
 				task.status = "completed";
 				task.finalResult = event.result;
 				task.currentTool = undefined;
-				enqueueAnnouncement(`[Pi] Finished: ${event.result}`);
+				logAnnouncement(`[Pi] Finished: ${event.result}`);
 				return;
 			case "error":
 				task.status = "failed";
 				task.error = event.message;
 				task.currentTool = undefined;
-				enqueueAnnouncement(`[Pi/error] ${event.message}`);
+				logAnnouncement(`[Pi/error] ${event.message}`);
 				return;
 			case "session_event": {
 				const sessionEvent = event.event;
@@ -205,14 +202,14 @@ export function createPiAgentTools({ chatId, enqueueReply }: CreatePiAgentToolsO
 					const toolName = typeof sessionEvent.toolName === "string" ? sessionEvent.toolName : "unknown";
 					const args = sessionEvent.args && typeof sessionEvent.args === "object" ? (sessionEvent.args as Record<string, unknown>) : {};
 					task.currentTool = toolName;
-					enqueueAnnouncement(`[Pi/tool:start] ${formatToolCall(toolName, args)}`);
+					logAnnouncement(`[Pi/tool:start] ${formatToolCall(toolName, args)}`);
 					return;
 				}
 				if (eventType === "tool_execution_update") {
 					const toolName = typeof sessionEvent.toolName === "string" ? sessionEvent.toolName : task.currentTool ?? "unknown";
 					const preview = toolResultPreview(sessionEvent);
 					if (preview) {
-						enqueueAnnouncement(`[Pi/tool:update] ${toolName}: ${preview}`);
+						logAnnouncement(`[Pi/tool:update] ${toolName}: ${preview}`);
 					}
 					return;
 				}
@@ -221,7 +218,7 @@ export function createPiAgentTools({ chatId, enqueueReply }: CreatePiAgentToolsO
 					const isError = sessionEvent.isError === true;
 					const preview = toolResultPreview(sessionEvent);
 					task.currentTool = undefined;
-					enqueueAnnouncement(
+					logAnnouncement(
 						isError
 							? `[Pi/tool:error] ${toolName}${preview ? `: ${preview}` : ""}`
 							: `[Pi/tool:done] ${toolName}${preview ? `: ${preview}` : ""}`
@@ -230,7 +227,7 @@ export function createPiAgentTools({ chatId, enqueueReply }: CreatePiAgentToolsO
 				}
 				if (eventType === "message_end") {
 					for (const text of extractAssistantText(sessionEvent)) {
-						enqueueAnnouncement(`[Pi/assistant] ${text}`);
+						logAnnouncement(`[Pi/assistant] ${text}`);
 					}
 				}
 			}
@@ -279,7 +276,7 @@ export function createPiAgentTools({ chatId, enqueueReply }: CreatePiAgentToolsO
 				taskHistory.length = 5;
 			}
 
-			enqueueAnnouncement(`[Pi] Started task ${task.id}. I’ll stream every tool call and error here.`);
+			logAnnouncement(`[Pi] Started task ${task.id}. I’ll stream every tool call and error here.`);
 
 			const worker = new PiWorker({
 				cwd: workspaceDir,

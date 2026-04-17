@@ -2,69 +2,48 @@ import {
 	createAgentSession,
 	defineTool,
 	type AgentSession,
+	type AgentToolResult,
 	SessionManager,
 } from "@mariozechner/pi-coding-agent";
 import { getModel, Type } from "@mariozechner/pi-ai";
 import pino from "pino";
 
-import { SimplexBridge } from "./simplex-bridge.js";
 import { resolveWorkspaceDir } from "./wiki.js";
 
 const log = pino({ name: "simplex-chat-session" });
 
-const SIMPLEX_MESSAGE_DELAY_MS = 900;
-
 interface SendMessageToolDetails {
 	sent: boolean;
-	reason?: "empty";
 	chars?: number;
-	sentCount?: number;
+	reason?: "empty";
 }
 
 export interface ChatSessionState {
 	session: AgentSession;
-	sentMessages: string[];
-	getPendingReplies(): Promise<void>;
 }
 
 interface CreateChatSessionOptions {
 	chatId: number;
 	model: ReturnType<typeof getModel>;
-	bridge: SimplexBridge;
 }
 
 export async function createChatSession({
 	chatId,
 	model,
-	bridge,
 }: CreateChatSessionOptions): Promise<ChatSessionState> {
-	const sentMessages: string[] = [];
-	let sendQueue = Promise.resolve<void>(undefined);
 	const workspaceDir = await resolveWorkspaceDir();
-
-	const enqueueReply = (text: string) => {
-		const resultPromise = sendQueue.then(async () => {
-			if (sentMessages.length > 0) {
-				await Bun.sleep(SIMPLEX_MESSAGE_DELAY_MS);
-			}
-
-			await bridge.reply(chatId, text);
-			sentMessages.push(text);
-		});
-		sendQueue = resultPromise.then(() => undefined, () => undefined);
-		return resultPromise;
+	const logReply = (text: string) => {
+		log.info({ chatId, chars: text.length }, "agent message logged (not sent to user)");
 	};
 
 	const sendMessageTool = createSendMessageTool({
-		chatId,
-		sentMessages,
-		enqueueReply,
+		logReply,
 	});
 
 	const { createPiAgentTools } = await import("./spawn-agent-tool.js");
 	const { spawnAgentTool, inspectAgentTool } = createPiAgentTools({
 		chatId,
-		enqueueReply,
+		logReply,
 	});
 
 	// Kawa stays limited to messaging, delegation, and Pi task inspection.
@@ -87,71 +66,49 @@ export async function createChatSession({
 		"chat session ready"
 	);
 
-	return { session, sentMessages, getPendingReplies: () => sendQueue };
+	return { session };
 }
 
 interface CreateSendMessageToolOptions {
-	chatId: number;
-	sentMessages: string[];
-	enqueueReply(text: string): Promise<void>;
+	logReply(text: string): void;
 }
 
-function createSendMessageTool({
-	chatId,
-	sentMessages,
-	enqueueReply,
-}: CreateSendMessageToolOptions) {
-	const buildSendMessageResult = (text: string, details: SendMessageToolDetails) => ({
-		content: [{ type: "text" as const, text }],
-		details,
-	});
-
+function createSendMessageTool({ logReply }: CreateSendMessageToolOptions) {
 	return defineTool({
 		name: "send_message",
 		label: "Send Message",
-		description: "Send a SimpleX chat message.",
-		promptSnippet: "Send a SimpleX message",
+		description: "Log a message for debugging. The user will not see this.",
+		promptSnippet: "Log a message for debugging",
 		promptGuidelines: [
-			"Send whatever message best fits the moment — long or short.",
-			"Send multiple messages when you want to.",
-			"Trust your instincts about what feels right.",
+			"Use this to log progress or context for backend debugging.",
+			"The user will NOT see these messages — only the final agent response is shown.",
 		],
 		parameters: Type.Object({
 			text: Type.String({
-				description: "The message to send.",
+				description: "The message to log.",
 			}),
 		}),
-		async execute(_toolCallId, params) {
-			const runSend = async () => {
-				const text = params.text.trim();
+		async execute(
+			_toolCallId: string,
+			params: { text: string }
+		): Promise<AgentToolResult<SendMessageToolDetails>> {
+			const text = params.text.trim();
 
-				if (!text) {
-					return buildSendMessageResult("No message sent because text was empty.", {
-						sent: false,
-						reason: "empty",
-					});
-				}
+			if (!text) {
+				const result: AgentToolResult<SendMessageToolDetails> = {
+					content: [{ type: "text", text: "No message logged because text was empty." }],
+					details: { sent: false, reason: "empty" },
+				};
+				return result;
+			}
 
-				await enqueueReply(text);
+			logReply(text);
 
-				log.info(
-					{
-						chatId,
-						chars: text.length,
-						sentCount: sentMessages.length,
-						delayMs: sentMessages.length > 1 ? SIMPLEX_MESSAGE_DELAY_MS : 0,
-					},
-					"send_message tool sent reply"
-				);
-
-				return buildSendMessageResult(`Sent message ${sentMessages.length}.`, {
-					sent: true,
-					chars: text.length,
-					sentCount: sentMessages.length,
-				});
+			const result: AgentToolResult<SendMessageToolDetails> = {
+				content: [{ type: "text", text: `Logged message (${text.length} chars).` }],
+				details: { sent: true, chars: text.length },
 			};
-
-			return await runSend();
+			return result;
 		},
 	});
 }

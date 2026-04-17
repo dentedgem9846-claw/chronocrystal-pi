@@ -19,6 +19,20 @@ import { startServer } from "./server.js";
 
 const log = pino({ name: "bot" });
 
+interface TextContentMessage {
+	role: string;
+	content: Array<{ type: string }>;
+}
+
+function isTextContentMessage(msg: unknown): msg is TextContentMessage {
+	return (
+		msg !== null &&
+		typeof msg === "object" &&
+		"content" in msg &&
+		Array.isArray((msg as TextContentMessage).content)
+	);
+}
+
 
 export interface BotOptions {
     displayName: string;
@@ -84,7 +98,7 @@ export async function startBot(options: BotOptions): Promise<void> {
             let chatSession = chatSessions.get(chatId);
             if (!chatSession) {
                 log.info({ chatId }, "creating chat session");
-                chatSession = await createChatSession({ chatId, model, bridge });
+		chatSession = await createChatSession({ chatId, model });
                 chatSessions.set(chatId, chatSession);
             }
 
@@ -121,28 +135,33 @@ export async function startBot(options: BotOptions): Promise<void> {
 }
 
 /**
- * Process a user message through the agent and return a fallback assistant response when
- * no tool already produced one or more user-visible replies for this turn.
+ * Process a user message through the agent and return the final assistant response.
  */
 async function processMessage(chatSession: ChatSessionState, userMessage: string): Promise<string | null> {
-    const preview = userMessage.slice(0, 80);
-    log.info({ message: preview }, "sending user message to agent");
+	const preview = userMessage.slice(0, 80);
+	log.info({ message: preview }, "sending user message to agent");
 
-    chatSession.sentMessages.length = 0;
-    await chatSession.session.prompt(userMessage);
-    await chatSession.getPendingReplies();
+	await chatSession.session.prompt(userMessage);
 
-    if (chatSession.sentMessages.length > 0) {
-        log.info({ sentCount: chatSession.sentMessages.length }, "reply already sent via tool");
-        return null;
-    }
+	const reply = chatSession.session.getLastAssistantText()?.trim();
+	if (!reply) {
+	const msgs = chatSession.session.messages;
+		const lastMsg = msgs.at(-1);
+		const lastContent = isTextContentMessage(lastMsg)
+			? lastMsg.content.filter((p: { type: string }) => p.type === "text").map((p) => (p as unknown as { text: string }).text).join("\n").slice(0, 300)
+			: undefined;
+		log.warn(
+			{
+				msgCount: msgs.length,
+				lastRole: lastMsg?.role,
+				lastContent,
+				lastStopReason: (lastMsg as unknown as { stopReason?: string })?.stopReason,
+			},
+			"no assistant text found"
+		);
+		return EMPTY_RESPONSE_REPLY;
+	}
 
-    const reply = chatSession.session.getLastAssistantText()?.trim();
-    if (!reply) {
-        log.warn("no assistant text found in last response");
-        return EMPTY_RESPONSE_REPLY;
-    }
-
-    log.info({ chars: reply.length }, "reply ready");
-    return reply;
+	log.info({ chars: reply.length }, "reply ready");
+	return reply;
 }

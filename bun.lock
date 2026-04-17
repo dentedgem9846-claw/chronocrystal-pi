@@ -6,7 +6,7 @@
       "name": "chronocrystal-pi",
       "dependencies": {
         "@mariozechner/pi-agent-core": "latest",
-        "@mariozechner/pi-ai": "latest",
+        "@mariozechner/pi-ai": "0.66.1",
         "@mariozechner/pi-coding-agent": "latest",
         "@mariozechner/pi-mom": "latest",
         "@simplex-chat/types": "latest",
@@ -18,7 +18,7 @@
       "devDependencies": {
         "@types/bun": "latest",
         "@types/qrcode": "latest",
-        "biome": "latest",
+        "biome": "^0.3.3",
         "husky": "latest",
       },
     },
