@@ -6,7 +6,6 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseBotModel } from "../../src/config.js";
 import {
  	buildSmokeUserDisplayName,
 	BufferedChatEvents,
@@ -29,7 +28,8 @@ import {
 const log = pino({ name: "smoke-prod" });
 
 const DEFAULT_PRODUCTION_BASE_URL = "https://chronocrystal-pi-production-db31.up.railway.app";
-const DEFAULT_JUDGE_MODEL = "github-copilot/gpt-4.1";
+const DEFAULT_JUDGE_PROVIDER = "github-copilot";
+const DEFAULT_JUDGE_MODEL_ID = "gpt-4.1";
 const SMOKE_PROMPT = "What is 5!? Return only the integer.";
 const JUDGE_RUBRIC = "PASS only if the reply clearly states that 5! = 120 and does not contradict itself.";
 
@@ -53,8 +53,9 @@ async function main(): Promise<void> {
 
 async function runSmokeTest(): Promise<void> {
 	const baseUrl = process.env.SMOKE_PROD_BASE_URL?.trim() || DEFAULT_PRODUCTION_BASE_URL;
-	const judgeModelSpec = process.env.SMOKE_JUDGE_MODEL?.trim() || DEFAULT_JUDGE_MODEL;
-	log.info({ baseUrl, judgeModelSpec }, "starting production smoke test");
+	const judgeProvider = process.env.SMOKE_JUDGE_PROVIDER?.trim() || DEFAULT_JUDGE_PROVIDER;
+	const judgeModelId = process.env.SMOKE_JUDGE_MODEL_ID?.trim() || DEFAULT_JUDGE_MODEL_ID;
+	log.info({ baseUrl, judgeProvider, judgeModelId }, "starting production smoke test");
 
 	await verifyHealth(baseUrl);
 	const status = await fetchAutomationStatus(baseUrl);
@@ -92,7 +93,7 @@ async function runSmokeTest(): Promise<void> {
 		const reply = await waitForDirectReply(events, contactId, sentAt);
 		log.info({ prompt: SMOKE_PROMPT, reply }, "received production bot reply");
 
-		const verdict = await judgeReply(SMOKE_PROMPT, reply, judgeModelSpec);
+		const verdict = await judgeReply(SMOKE_PROMPT, reply, judgeProvider, judgeModelId);
 		log.info({ rubric: JUDGE_RUBRIC, verdict }, "judge verdict produced");
 
 		if (verdict.verdict !== "pass") {
@@ -120,12 +121,10 @@ async function runSmokeTest(): Promise<void> {
 	}
 }
 
-async function judgeReply(prompt: string, reply: string, judgeModelSpec: string): Promise<JudgeVerdict> {
-	const { provider, modelId } = parseBotModel(judgeModelSpec);
-	// @ts-expect-error pi-ai model lookup is runtime-configured from environment.
-	const model = getModel(provider, modelId);
+async function judgeReply(prompt: string, reply: string, judgeProvider: string, judgeModelId: string): Promise<JudgeVerdict> {
+	const model = getModel(judgeProvider as any, judgeModelId as any);
 	if (!model) {
-		throw new Error(`Judge model not found: ${judgeModelSpec}`);
+		throw new Error(`Judge model not found: ${judgeProvider}/${judgeModelId}`);
 	}
 
 	const context: Context = {
@@ -148,7 +147,7 @@ async function judgeReply(prompt: string, reply: string, judgeModelSpec: string)
 
 	const response = await complete(model, context);
 	const rawJudgeReply = getAssistantText(response).trim();
-	log.info({ judgeModelSpec, rawJudgeReply }, "received judge response");
+	log.info({ judgeProvider, judgeModelId, rawJudgeReply }, "received judge response");
 	return parseJudgeVerdict(rawJudgeReply);
 }
 

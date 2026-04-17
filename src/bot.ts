@@ -5,6 +5,7 @@
  * with the Pi coding agent, and replies back.
  */
 import { getModel } from "@mariozechner/pi-ai";
+import type { KnownProvider } from "@mariozechner/pi-ai";
 import pino from "pino";
 
 import { createChatSession, type ChatSessionState } from "./simplex-chat-session.js";
@@ -12,7 +13,6 @@ import { SimplexBridge, type BotConfig } from "./simplex-bridge.js";
 import {
     EMPTY_RESPONSE_REPLY,
     GENERATION_ERROR_REPLY,
-    parseBotModel,
 } from "./config.js";
 import { formatProviderErrorForUser } from "./provider-error.js";
 import { startServer } from "./server.js";
@@ -22,7 +22,8 @@ const log = pino({ name: "bot" });
 
 export interface BotOptions {
     displayName: string;
-    model: string;
+    provider: string;
+    modelId: string;
     simplexHost: string;
     simplexPort: number;
 }
@@ -33,18 +34,22 @@ export interface BotOptions {
  */
 export async function startBot(options: BotOptions): Promise<void> {
     const displayName = options.displayName;
-    const modelSpec = options.model;
+    const provider = options.provider;
+    const modelId = options.modelId;
     const simplexHost = options.simplexHost;
     const simplexPort = options.simplexPort;
 
     log.info(
-        { displayName, modelSpec, simplexHost, simplexPort },
+        { displayName, provider, modelId, simplexHost, simplexPort },
         "starting bot"
     );
 
-    const { provider, modelId } = parseBotModel(modelSpec);
-    // @ts-expect-error - dynamic model IDs from providers like openrouter aren't in static types
-    const model = getModel(provider, modelId);
+    // OpenRouter accepts arbitrary third-party model IDs not in the static registry.
+    const model = getModel(provider as KnownProvider, modelId as never);
+
+    if (!model) {
+        throw new Error(`Model not found: ${provider}/${modelId}`);
+    }
 
     log.info({ provider, modelId }, "model resolved");
 
@@ -89,11 +94,12 @@ export async function startBot(options: BotOptions): Promise<void> {
                     await bridge.reply(chatId, reply);
                 }
             } catch (err) {
-                const providerReply = formatProviderErrorForUser(err, modelSpec);
+                const providerReply = formatProviderErrorForUser(err, `${provider}/${modelId}`);
                 log.error(
                     {
                         chatId,
-                        modelSpec,
+                        provider,
+                        modelId,
                         err: err instanceof Error ? err.message : String(err),
                         providerReply,
                     },

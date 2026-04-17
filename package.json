@@ -9,6 +9,9 @@
     "check": "bunx biome check --write --error-on-warnings . && tsc --noEmit",
     "test": "bun test",
     "smoke:prod": "bun run test/smoke/prod.ts",
+    "smoke:prod:deploy": "bun run scripts/smoke.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "deploy:check": "bun run scripts/deploy.ts --check-only",
     "smoke:pi-subagent": "bun run test/smoke/pi-subagent.ts",
     "pi:agent": "bun run src/pi-agent-cli.ts",
     "prepare": "bun .husky/install.mjs"

@@ -2,14 +2,16 @@
  * Default values for bot configuration.
  */
 export const DEFAULT_BOT_DISPLAY_NAME = "ChronoCrystal";
-export const DEFAULT_BOT_MODEL = "github-copilot/minimax-m2.5";
+export const DEFAULT_BOT_PROVIDER = "github-copilot";
+export const DEFAULT_BOT_MODEL_ID = "minimax-m2.5";
 export const DEFAULT_SIMPLEX_HOST = "127.0.0.1";
 export const DEFAULT_SIMPLEX_PORT = 5225;
 const DEFAULT_SERVER_PORT = 8080;
 export const EMPTY_RESPONSE_REPLY = "Sorry, I couldn't generate a reply.";
 export const GENERATION_ERROR_REPLY = "Sorry, I hit an internal error while generating a reply.";
 const DEFAULT_PI_AGENT_SCRIPT = "src/pi-agent-cli.ts";
-export const DEFAULT_PI_MODEL = "github-copilot/minimax-m2.5";
+export const DEFAULT_PI_PROVIDER = "github-copilot";
+export const DEFAULT_PI_MODEL_ID = "minimax-m2.5";
 
 /**
  * Gets the bot display name from environment or returns default.
@@ -19,30 +21,17 @@ export function getBotDisplayName(env = process.env): string {
 }
 
 /**
- * Gets the bot model from environment or returns default.
+ * Gets the bot provider from environment or returns default.
  */
-export function getBotModel(env = process.env): string {
-    return env.BOT_MODEL ?? DEFAULT_BOT_MODEL;
+export function getBotProvider(env = process.env): string {
+    return env.BOT_PROVIDER ?? DEFAULT_BOT_PROVIDER;
 }
 
 /**
- * Parses a BOT_MODEL value (e.g., "github-copilot/gpt-4.1") into its provider and model ID components.
- * @param value - A "provider/modelId" string
- * @returns Object with provider and modelId
- * @throws Error if the value is malformed (missing "/", empty provider or modelId)
- * @example parseBotModel("github-copilot/gpt-4.1") // { provider: "github-copilot", modelId: "gpt-4.1" }
- * @example parseBotModel("openrouter/anthropic/claude-3.5-sonnet") // { provider: "openrouter", modelId: "anthropic/claude-3.5-sonnet" }
+ * Gets the bot model ID from environment or returns default.
  */
-export function parseBotModel(value: string): { provider: string; modelId: string } {
-    const separator = value.indexOf("/");
-    if (separator <= 0 || separator === value.length - 1) {
-        throw new Error(`Invalid BOT_MODEL: ${value}`);
-    }
-
-    return {
-        provider: value.slice(0, separator),
-        modelId: value.slice(separator + 1),
-    };
+export function getBotModelId(env = process.env): string {
+    return env.BOT_MODEL_ID ?? DEFAULT_BOT_MODEL_ID;
 }
 
 function parsePositiveIntegerEnv(name: string, rawValue: string): number {
@@ -83,8 +72,15 @@ export function getPiAgentScript(env = process.env): string {
 }
 
 /**
- * Gets the Pi model from environment or returns default.
+ * Gets the Pi provider from environment or returns default.
  */
-export function getPiModel(env = process.env): string {
-    return env.PI_MODEL ?? DEFAULT_PI_MODEL;
+export function getPiProvider(env = process.env): string {
+    return env.PI_PROVIDER ?? DEFAULT_PI_PROVIDER;
+}
+
+/**
+ * Gets the Pi model ID from environment or returns default.
+ */
+export function getPiModelId(env = process.env): string {
+    return env.PI_MODEL_ID ?? DEFAULT_PI_MODEL_ID;
 }

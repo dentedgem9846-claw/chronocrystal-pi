@@ -6,14 +6,15 @@
 import { startBot } from "./bot.js";
 
 import pino from "pino";
-import { getBotDisplayName, getBotModel, getSimplexHost, getSimplexPort } from "./config.js";
+import { getBotDisplayName, getBotProvider, getBotModelId, getSimplexHost, getSimplexPort } from "./config.js";
 
 const log = pino({ name: "chronocrystal" });
 
 try {
     await startBot({
         displayName: getBotDisplayName(),
-        model: getBotModel(),
+        provider: getBotProvider(),
+        modelId: getBotModelId(),
         simplexHost: getSimplexHost(),
         simplexPort: getSimplexPort(),
     })

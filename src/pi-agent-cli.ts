@@ -10,7 +10,6 @@ import { getModel, Type } from "@mariozechner/pi-ai";
 import { resolve } from "node:path";
 import pino from "pino";
 
-import { parseBotModel } from "./config.js";
 import {
 	getWikiTiddler,
 	listWikiTiddlers,
@@ -18,6 +17,7 @@ import {
 	setWikiTiddler,
 	WIKI_ROUTE_PREFIX,
 } from "./wiki.js";
+import { getPiProvider, getPiModelId } from "./config.js";
 
 const log = pino({ name: "pi-agent-cli" });
 
@@ -43,7 +43,6 @@ interface SendMessageToolDetails {
 
 interface CliOptions {
 	task: string;
-	model: string;
 }
 
 type PiCliEvent =
@@ -56,16 +55,12 @@ function parseArgs(): CliOptions {
 	const args = process.argv.slice(2);
 	const options: CliOptions = {
 		task: "",
-		model: process.env.PI_MODEL ?? "github-copilot/minimax-m2.5",
 	};
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
 		if (arg === "--task" && i + 1 < args.length) {
 			options.task = args[i + 1]!;
-			i++;
-		} else if (arg === "--model" && i + 1 < args.length) {
-			options.model = args[i + 1]!;
 			i++;
 		}
 	}
@@ -101,11 +96,11 @@ async function main() {
 	const piContextDir = resolve(workspaceDir, PI_CONTEXT_DIR_NAME);
 	const resourceLoader = new DefaultResourceLoader({ cwd: piContextDir });
 	await resourceLoader.reload();
-	const { provider, modelId } = parseBotModel(options.model);
-	// @ts-expect-error dynamic model IDs are allowed at runtime
-	const model = getModel(provider, modelId);
+	const provider = getPiProvider();
+	const modelId = getPiModelId();
+	const model = getModel(provider as any, modelId as any);
 
-	log.info({ cwd: workspaceDir, piContextDir, model: options.model }, "starting Pi agent subprocess");
+	log.info({ cwd: workspaceDir, piContextDir, provider, modelId }, "starting Pi agent subprocess");
 
 	let sentCount = 0;
 	let finalText = "";
