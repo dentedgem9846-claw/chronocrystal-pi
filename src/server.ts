@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import pino from "pino";
 
 import { getServerPort } from "./config.js";
+import { ensureDefaultWikiServerStarted, proxyWikiRequest, WIKI_ROUTE_PREFIX } from "./wiki.js";
 
 const log = pino({ name: "server" });
 
@@ -26,6 +27,8 @@ function buildAutomationStatus(address: string, requestUrl: URL, env = process.e
 
 export async function startServer(address: string): Promise<void> {
 	const port = getServerPort();
+	await ensureDefaultWikiServerStarted();
+
 	const qrSvg = await QRCode.toString(address, { type: "svg" });
 	const escapedAddress = escapeHtml(address);
 	const html = `<!DOCTYPE html>
@@ -58,6 +61,10 @@ export async function startServer(address: string): Promise<void> {
 			height: auto;
 			margin: 0 auto;
 		}
+
+		a {
+			color: inherit;
+		}
 	</style>
 </head>
 <body>
@@ -66,6 +73,7 @@ export async function startServer(address: string): Promise<void> {
 		<p>Scan the QR code or copy the SimpleX chat address below.</p>
 		${qrSvg}
 		<address>${escapedAddress}</address>
+		<p><a href="${WIKI_ROUTE_PREFIX}">Open KawaWiki</a></p>
 	</main>
 </body>
 </html>`;
@@ -89,6 +97,9 @@ export async function startServer(address: string): Promise<void> {
 				});
 			}
 
+			if (url.pathname === WIKI_ROUTE_PREFIX || url.pathname.startsWith(`${WIKI_ROUTE_PREFIX}/`)) {
+				return proxyWikiRequest(request);
+			}
 
 			if (request.method === "GET" && url.pathname === "/") {
 				return new Response(html, {
