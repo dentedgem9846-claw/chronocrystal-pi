@@ -19,16 +19,11 @@ import {
 
 const log = pino({ name: "simplex-chat-session" });
 
-const MAX_SIMPLEX_MESSAGES_PER_TURN = 8;
-const MAX_SIMPLEX_MESSAGE_CHARS = 240;
-const FULLER_SIMPLEX_MESSAGE_CHARS = 60;
-const SHORT_FOLLOW_UP_MAX_CHARS = 60;
 const SIMPLEX_MESSAGE_DELAY_MS = 900;
-const MAX_WIKI_LIST_RESULTS = 25;
 
 interface SendMessageToolDetails {
 	sent: boolean;
-	reason?: "empty" | "too_many_messages" | "too_long" | "follow_up_too_long";
+	reason?: "empty";
 	chars?: number;
 	sentCount?: number;
 }
@@ -108,60 +103,27 @@ function createSendMessageTool({
 	return defineTool({
 		name: "send_message",
 		label: "Send Message",
-		description: "Send the next user-visible SimpleX chat message immediately.",
-		promptSnippet: "Send the next user-visible SimpleX message bubble immediately",
+		description: "Send a SimpleX chat message.",
+		promptSnippet: "Send a SimpleX message",
 		promptGuidelines: [
-			"Use send_message for user-visible SimpleX replies.",
-			"Choose natural grouping: some replies should be one fuller bubble, others can be several shorter follow-ups.",
-			"Do not mechanically split every sentence into its own message.",
-			"When the first bubble is already fuller, make the next follow-up noticeably shorter.",
-			"Keep each bubble focused on one main idea.",
+			"Send whatever message best fits the moment — long or short.",
+			"Send multiple messages when you want to.",
+			"Trust your instincts about what feels right.",
 		],
 		parameters: Type.Object({
 			text: Type.String({
-				description: "The exact SimpleX message bubble to send. Keep it short and limited to one idea.",
+				description: "The message to send.",
 			}),
 		}),
 		async execute(_toolCallId, params) {
 			const runSend = async () => {
 				const text = params.text.trim();
-				const firstMessageWasFuller = sentMessages[0] !== undefined
-					&& sentMessages[0].length >= FULLER_SIMPLEX_MESSAGE_CHARS;
-				const alreadySentShortFollowUp = sentMessages
-					.slice(1)
-					.some((message) => message.length <= SHORT_FOLLOW_UP_MAX_CHARS);
 
 				if (!text) {
 					return buildSendMessageResult("No message sent because text was empty.", {
 						sent: false,
 						reason: "empty",
 					});
-				}
-
-				if (sentMessages.length >= MAX_SIMPLEX_MESSAGES_PER_TURN) {
-					return buildSendMessageResult(
-						`No message sent. You already sent ${MAX_SIMPLEX_MESSAGES_PER_TURN} messages this turn; stop sending more.`,
-						{ sent: false, reason: "too_many_messages" }
-					);
-				}
-
-				if (text.length > MAX_SIMPLEX_MESSAGE_CHARS) {
-					return buildSendMessageResult(
-						`No message sent. Split this into shorter messages under ${MAX_SIMPLEX_MESSAGE_CHARS} characters.`,
-						{ sent: false, reason: "too_long", chars: text.length }
-					);
-				}
-
-				if (
-					firstMessageWasFuller
-					&& sentMessages.length > 0
-					&& !alreadySentShortFollowUp
-					&& text.length > SHORT_FOLLOW_UP_MAX_CHARS
-				) {
-					return buildSendMessageResult(
-						`No message sent. After a fuller first bubble, make the next follow-up ${SHORT_FOLLOW_UP_MAX_CHARS} characters or less.`,
-						{ sent: false, reason: "follow_up_too_long", chars: text.length }
-					);
 				}
 
 				if (sentMessages.length > 0) {
@@ -214,9 +176,9 @@ function createListWikiTiddlersTool() {
 			),
 			limit: Type.Optional(
 				Type.Number({
-					description: `Maximum number of results to return. Defaults to 20, max ${MAX_WIKI_LIST_RESULTS}.`,
+					description: "Maximum number of results to return. Defaults to 20, max 25.",
 					minimum: 1,
-					maximum: MAX_WIKI_LIST_RESULTS,
+					maximum: 25,
 				})
 			),
 		}),
@@ -273,7 +235,7 @@ function createGetWikiTiddlerTool() {
 			if (!title) {
 				return {
 					content: [{ type: "text" as const, text: "Tiddler title cannot be empty." }],
-					details: { found: false, title: "" }
+					details: { found: false, title: "" },
 				};
 			}
 
@@ -300,8 +262,8 @@ function createSetWikiTiddlerTool() {
 		description: "Create or update a KawaWiki tiddler in the live server-backed wiki.",
 		promptSnippet: "Save a KawaWiki tiddler after you have confirmed the right title and content.",
 		promptGuidelines: [
-			"Prefer updating an existing tiddler unless the user clearly wants a new page.",
-			"Keep tags stable unless the user asked to change categorization.",
+			"Prefer updating an existing relevant tiddler unless the user clearly wants a new page.",
+			"Keep tags stable unless the user asked to recategorize the page.",
 			"Do not save placeholder text. Write the full intended tiddler body.",
 		],
 		parameters: Type.Object({
@@ -352,7 +314,7 @@ function clampWikiResultLimit(value: number | undefined): number {
 		return 20;
 	}
 
-	return Math.min(Math.max(Math.trunc(value), 1), MAX_WIKI_LIST_RESULTS);
+	return Math.min(Math.max(Math.trunc(value), 1), 25);
 }
 
 function matchesWikiSearch(
