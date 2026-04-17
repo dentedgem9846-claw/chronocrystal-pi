@@ -9,6 +9,7 @@ RUN apt-get update \
 
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
+RUN ln -s /root/.bun/bin/bun /usr/local/bin/node && chmod +x /usr/local/bin/node
 
 RUN curl -fsSL -o /usr/local/bin/simplex-chat \
     "https://github.com/simplex-chat/simplex-chat/releases/download/${SIMPLEX_VERSION}/simplex-chat-ubuntu-22_04-x86_64" \
