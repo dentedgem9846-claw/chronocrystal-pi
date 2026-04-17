@@ -14,6 +14,7 @@ import {
     GENERATION_ERROR_REPLY,
     parseBotModel,
 } from "./config.js";
+import { formatProviderErrorForUser } from "./provider-error.js";
 import { startServer } from "./server.js";
 
 const log = pino({ name: "bot" });
@@ -88,12 +89,18 @@ export async function startBot(options: BotOptions): Promise<void> {
                     await bridge.reply(chatId, reply);
                 }
             } catch (err) {
+                const providerReply = formatProviderErrorForUser(err, modelSpec);
                 log.error(
-                    { chatId, err: err instanceof Error ? err.message : String(err) },
+                    {
+                        chatId,
+                        modelSpec,
+                        err: err instanceof Error ? err.message : String(err),
+                        providerReply,
+                    },
                     "failed to process message"
                 );
 
-                await bridge.reply(chatId, GENERATION_ERROR_REPLY);
+                await bridge.reply(chatId, providerReply ?? GENERATION_ERROR_REPLY);
             }
         }
     } catch (err) {
@@ -109,7 +116,7 @@ export async function startBot(options: BotOptions): Promise<void> {
 
 /**
  * Process a user message through the agent and return a fallback assistant response when
- * the model did not already send one or more messages through the send_message tool.
+ * no tool already produced one or more user-visible replies for this turn.
  */
 async function processMessage(chatSession: ChatSessionState, userMessage: string): Promise<string | null> {
     const preview = userMessage.slice(0, 80);
@@ -117,9 +124,10 @@ async function processMessage(chatSession: ChatSessionState, userMessage: string
 
     chatSession.sentMessages.length = 0;
     await chatSession.session.prompt(userMessage);
+    await chatSession.getPendingReplies();
 
     if (chatSession.sentMessages.length > 0) {
-        log.info({ sentCount: chatSession.sentMessages.length }, "reply already sent via send_message tool");
+        log.info({ sentCount: chatSession.sentMessages.length }, "reply already sent via tool");
         return null;
     }
 

@@ -8,6 +8,8 @@ export const DEFAULT_SIMPLEX_PORT = 5225;
 const DEFAULT_SERVER_PORT = 8080;
 export const EMPTY_RESPONSE_REPLY = "Sorry, I couldn't generate a reply.";
 export const GENERATION_ERROR_REPLY = "Sorry, I hit an internal error while generating a reply.";
+const DEFAULT_PI_AGENT_SCRIPT = "src/pi-agent-cli.ts";
+export const DEFAULT_PI_MODEL = "github-copilot/minimax-m2.5";
 
 /**
  * Gets the bot display name from environment or returns default.
@@ -71,4 +73,18 @@ export function getSimplexPort(env = process.env): number {
  */
 export function getServerPort(env = process.env): number {
     return parsePositiveIntegerEnv("PORT", env.PORT ?? String(DEFAULT_SERVER_PORT));
+}
+
+/**
+ * Gets the Pi agent script path from environment or returns default.
+ */
+export function getPiAgentScript(env = process.env): string {
+    return env.PI_AGENT_SCRIPT ?? DEFAULT_PI_AGENT_SCRIPT;
+}
+
+/**
+ * Gets the Pi model from environment or returns default.
+ */
+export function getPiModel(env = process.env): string {
+    return env.PI_MODEL ?? DEFAULT_PI_MODEL;
 }
